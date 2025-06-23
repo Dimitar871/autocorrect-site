@@ -10,6 +10,6 @@ Just type your text, hit "Check Text", and see instant corrections.
 - JavaScript (fetch)
 - LanguageTool API
 
----
+Hosted version - https://autocorrect-site.onrender.com/
 
 Made by Dimitar Yosifov
