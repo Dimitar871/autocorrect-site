@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Page Title</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+  <div id="navbar"></div>
+
+  <main class="flex-grow container mx-auto px-4 py-12">
+    <section class="bg-white rounded-lg shadow p-6 max-w-2xl mx-auto">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800">Check Your Text</h2>
+      <p class="text-gray-600 mb-6">Paste your text below to check for corrections.</p>
+
+      <form id="spellcheck-form" class="flex flex-col">
+        <textarea
+          id="input-text"
+          rows="6"
+          class="w-full p-4 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+          placeholder="Type or paste your text here..."
+        ></textarea>
+
+        <button
+          type="submit"
+          class="mt-4 self-start bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700 transition"
+        >
+          Check Text
+        </button>
+      </form>
+
+      <aside id="results" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8">
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <h3 class="font-semibold mb-2">US Corrections</h3>
+          <pre id="us-corrected" class="whitespace-pre-wrap text-gray-800"></pre>
+          <ul id="us-errors" class="mt-4 space-y-2 text-sm text-red-600"></ul>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <h3 class="font-semibold mb-2">UK Corrections</h3>
+          <pre id="uk-corrected" class="whitespace-pre-wrap text-gray-800"></pre>
+          <ul id="uk-errors" class="mt-4 space-y-2 text-sm text-red-600"></ul>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <footer class="text-center text-gray-500 py-6 text-sm">
+    &copy; 2025 AutoCorrect API. All rights reserved.
+  </footer>
+
+  <script src="nav.js"></script>
+  <script>
+    document.getElementById('spellcheck-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const text = document.getElementById('input-text').value.trim();
+      if (!text) return;
+
+      document.getElementById('results').classList.remove('hidden');
+      ['us','uk'].forEach(pane => {
+        document.getElementById(`${pane}-corrected`).textContent = 'Checking…';
+        document.getElementById(`${pane}-errors`).innerHTML = '';
+      });
+
+      const calls = ['en-US','en-GB'].map(lang =>
+        fetch('https://api.languagetool.org/v2/check', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ text, language: lang })
+        }).then(r => r.json())
+      );
+
+      const [usData, ukData] = await Promise.all(calls);
+
+      function render(pane, data) {
+        let corrected = text;
+        data.matches.slice().reverse().forEach(m => {
+          const rep = m.replacements[0]?.value;
+          if (rep) corrected = corrected.slice(0,m.offset) + rep + corrected.slice(m.offset+m.length);
+        });
+        document.getElementById(`${pane}-corrected`).textContent = corrected;
+        data.matches.filter(m => m.replacements[0]?.value?.trim()).forEach(m => {
+          const li = document.createElement('li');
+          li.textContent = `${m.rule.category.name}: ${m.message} → [${m.replacements.map(r=>r.value).join(', ')}]`;
+          document.getElementById(`${pane}-errors`).appendChild(li);
+        });
+      }
+
+      render('us', usData);
+      render('uk', ukData);
+    });
+  </script>
+</body>
+</html>
